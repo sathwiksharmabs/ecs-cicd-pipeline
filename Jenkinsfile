@@ -29,7 +29,10 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                sh 'docker build -t ecs-cicd-app:${BUILD_NUMBER} .'
+                sh '''
+                docker build -t ecs-cicd-app:${BUILD_NUMBER} .
+                docker tag ecs-cicd-app:${BUILD_NUMBER} ecs-cicd-app:latest
+                '''
             }
         }
     }
