@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+    AWS_REGION = 'us-west-2'
+    ECR_REPO = '472981659331.dkr.ecr.us-west-2.amazonaws.com/ecs-cicd-app'
+    }
+
     stages {
 
         stage('Checkout') {
@@ -39,12 +44,17 @@ pipeline {
         stage('Push to ECR') {
             steps {
                 sh '''
-                aws ecr get-login-password --region us-west-2 | \
-                docker login --username AWS --password-stdin 472981659331.dkr.ecr.us-west-2.amazonaws.com
-                docker tag ecs-cicd-app:${BUILD_NUMBER} 472981659331.dkr.ecr.us-west-2.amazonaws.com/ecs-cicd-app:${BUILD_NUMBER}
-                docker push 472981659331.dkr.ecr.us-west-2.amazonaws.com/ecs-cicd-app:${BUILD_NUMBER}
+                aws ecr get-login-password --region $AWS_REGION | \
+                docker login --username AWS --password-stdin $ECR_REPO
+
+                docker tag ecs-cicd-app:${BUILD_NUMBER} $ECR_REPO:${BUILD_NUMBER}
+                docker tag ecs-cicd-app:${BUILD_NUMBER} $ECR_REPO:latest
+
+                docker push $ECR_REPO:${BUILD_NUMBER}
+                docker push $ECR_REPO:latest
                 '''
             }
         }
+        
     }
 }
