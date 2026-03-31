@@ -48,3 +48,9 @@ Thumbs.db
 
 # Jenkins (optional later)
 workspace/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.terraform.lock.hcl
