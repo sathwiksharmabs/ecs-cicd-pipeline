@@ -50,7 +50,11 @@ Thumbs.db
 workspace/
 
 # Terraform
-terraform/.terraform/
+# Ignore Terraform local directories and state files
+**/.terraform/
 *.tfstate
 *.tfstate.backup
 *.terraform.lock.hcl
+
+# Optional: Ignore local variable overrides (if used)
+*.tfvars
