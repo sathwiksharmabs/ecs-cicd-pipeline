@@ -55,6 +55,18 @@ pipeline {
                 '''
             }
         }
+
+        stage('Deploy to ECS') {
+            steps {
+                sh '''
+                aws ecs update-service \
+                --cluster ecs-cluster \
+                --service ecs-service \
+                --force-new-deployment \
+                --region $AWS_REGION
+                '''
+            }
+        }
         
     }
 }
