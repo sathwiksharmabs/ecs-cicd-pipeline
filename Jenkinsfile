@@ -1,9 +1,10 @@
-pipeline {
+pipeline { 
     agent any
 
     environment {
-    AWS_REGION = 'us-west-2'
-    ECR_REPO = '472981659331.dkr.ecr.us-west-2.amazonaws.com/ecs-cicd-app'
+        AWS_REGION = 'us-west-2'
+        ECR_REPO = '472981659331.dkr.ecr.us-west-2.amazonaws.com/ecs-cicd-app'
+        IMAGE_TAG = "${BUILD_NUMBER}" // unique for each build
     }
 
     stages {
@@ -16,7 +17,7 @@ pipeline {
 
         stage('Fix Permissions') {
             steps {
-                sh 'chmod +x mvnw'
+                sh 'chmod +x mvnw deploy.sh'
             }
         }
 
@@ -35,8 +36,8 @@ pipeline {
         stage('Docker Build') {
             steps {
                 sh '''
-                docker build -t ecs-cicd-app:${BUILD_NUMBER} .
-                docker tag ecs-cicd-app:${BUILD_NUMBER} ecs-cicd-app:latest
+                docker build -t ecs-cicd-app:${IMAGE_TAG} .
+                docker tag ecs-cicd-app:${IMAGE_TAG} ecs-cicd-app:latest
                 '''
             }
         }
@@ -47,10 +48,10 @@ pipeline {
                 aws ecr get-login-password --region $AWS_REGION | \
                 docker login --username AWS --password-stdin $ECR_REPO
 
-                docker tag ecs-cicd-app:${BUILD_NUMBER} $ECR_REPO:${BUILD_NUMBER}
-                docker tag ecs-cicd-app:${BUILD_NUMBER} $ECR_REPO:latest
+                docker tag ecs-cicd-app:${IMAGE_TAG} $ECR_REPO:${IMAGE_TAG}
+                docker tag ecs-cicd-app:${IMAGE_TAG} $ECR_REPO:latest
 
-                docker push $ECR_REPO:${BUILD_NUMBER}
+                docker push $ECR_REPO:${IMAGE_TAG}
                 docker push $ECR_REPO:latest
                 '''
             }
@@ -58,13 +59,7 @@ pipeline {
 
         stage('Deploy to ECS') {
             steps {
-                sh '''
-                aws ecs update-service \
-                --cluster ecs-cluster \
-                --service ecs-service \
-                --force-new-deployment \
-                --region $AWS_REGION
-                '''
+                sh './deploy.sh $IMAGE_TAG'
             }
         }
         
