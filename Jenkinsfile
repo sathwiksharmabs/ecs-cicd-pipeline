@@ -60,14 +60,38 @@ pipeline {
             steps {
                 script {
                     echo "Deploying ECS service with image tag: ${IMAGE_TAG}"
-                    sh '''
+
+                    // 1. Fetch current task definition JSON
+                    sh """
+                    aws ecs describe-task-definition --task-definition ecs-task-def > taskdef.json
+                    """
+
+                    // 2. Replace image in container definitions
+                    sh """
+                    cat taskdef.json | jq '.taskDefinition.containerDefinitions[0].image = "${ECR_REPO}:${IMAGE_TAG}"' > new-taskdef.json
+                    """
+
+                    // 3. Register new task definition revision
+                    sh """
+                    aws ecs register-task-definition \
+                        --cli-input-json file://new-taskdef.json > taskdef_response.json
+                    """
+
+                    // 4. Get new revision ARN
+                    sh """
+                    NEW_REVISION=\$(cat taskdef_response.json | jq -r '.taskDefinition.taskDefinitionArn')
+                    echo "New revision ARN: \$NEW_REVISION"
+                    """
+
+                    // 5. Update ECS service to use new revision
+                    sh """
                     aws ecs update-service \
-                    --cluster ecs-cluster \
-                    --service ecs-service \
-                    --force-new-deployment \
-                    --region $AWS_REGION \
-                    --image $ECR_REPO:'${IMAGE_TAG}'
-                    '''
+                        --cluster ecs-cluster \
+                        --service ecs-service \
+                        --task-definition \$NEW_REVISION \
+                        --force-new-deployment \
+                        --region $AWS_REGION
+                    """
                 }
             }
         }
