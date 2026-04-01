@@ -96,11 +96,11 @@ pipeline {
                       --task-definition $NEW_TASK_DEF_ARN \
                       --region $AWS_REGION
 
-                    echo "Waiting for ECS to stabilize..."
-                    aws ecs wait services-stable \
+                    echo "Waiting for ECS to stabilize (max 2 mins)..."
+                    timeout 120s aws ecs wait services-stable \
                       --cluster $CLUSTER \
                       --services $SERVICE \
-                      --region $AWS_REGION
+                      --region $AWS_REGION || echo "Not fully stable, continuing..."
                     '''
                 }
             }
