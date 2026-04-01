@@ -95,6 +95,7 @@ pipeline {
                       --service $SERVICE \
                       --task-definition $NEW_TASK_DEF_ARN \
                       --region $AWS_REGION
+                    echo "Deployment triggered"
                     '''
                 }
             }
