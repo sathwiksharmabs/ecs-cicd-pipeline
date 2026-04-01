@@ -67,7 +67,7 @@ pipeline {
                     NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "$ECR_REPO:$IMAGE_TAG" '
                     {
                       family: .family,
-                      taskRoleArn: .taskRoleArn,
+                      taskRoleArn: (.taskRoleArn // empty),
                       executionRoleArn: .executionRoleArn,
                       networkMode: .networkMode,
                       containerDefinitions: (.containerDefinitions | map(.image = $IMAGE)),
