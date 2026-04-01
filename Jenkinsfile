@@ -49,53 +49,97 @@ pipeline {
 
         stage('Deploy to ECS') {
             steps {
-                sh '''
-                TASK_DEF=$(aws ecs describe-task-definition \
-                  --task-definition ecs-cicd-app-task \
-                  --query taskDefinition)
+                script {
+                    sh '''
+                    set -e
 
-                NEW_TASK_DEF=$(echo $TASK_DEF | jq \
-                  --arg IMAGE "$ECR_REPO:$IMAGE_TAG" \
-                  '.containerDefinitions[0].image = $IMAGE')
+                    echo "Getting current task definition..."
+                    TASK_DEF=$(aws ecs describe-task-definition \
+                      --task-definition ecs-cicd-app-task \
+                      --query taskDefinition)
 
-                echo $NEW_TASK_DEF > new-task-def.json
+                    echo "Saving previous revision for rollback..."
+                    PREV_TASK_DEF_ARN=$(echo $TASK_DEF | jq -r '.taskDefinitionArn')
 
-                aws ecs register-task-definition \
-                  --cli-input-json file://new-task-def.json
+                    echo $PREV_TASK_DEF_ARN > prev-task.txt
 
-                aws ecs update-service \
-                  --cluster $CLUSTER \
-                  --service $SERVICE \
-                  --force-new-deployment \
-                  --region $AWS_REGION
-                '''
+                    echo "Creating new task definition with updated image..."
+                    NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "$ECR_REPO:$IMAGE_TAG" '
+                    {
+                      family: .family,
+                      taskRoleArn: .taskRoleArn,
+                      executionRoleArn: .executionRoleArn,
+                      networkMode: .networkMode,
+                      containerDefinitions: (.containerDefinitions | map(.image = $IMAGE)),
+                      requiresCompatibilities: .requiresCompatibilities,
+                      cpu: .cpu,
+                      memory: .memory
+                    }')
+
+                    echo "$NEW_TASK_DEF" > new-task-def.json
+
+                    echo "Registering new task definition..."
+                    NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+                      --cli-input-json file://new-task-def.json \
+                      --query 'taskDefinition.taskDefinitionArn' \
+                      --output text)
+
+                    echo $NEW_TASK_DEF_ARN > new-task.txt
+
+                    echo "Updating ECS service..."
+                    aws ecs update-service \
+                      --cluster $CLUSTER \
+                      --service $SERVICE \
+                      --task-definition $NEW_TASK_DEF_ARN \
+                      --region $AWS_REGION
+                    '''
+                }
             }
         }
 
         stage('Health Check') {
             steps {
-                sh '''
-                sleep 30
-                aws ecs describe-services \
-                  --cluster $CLUSTER \
-                  --services $SERVICE \
-                  --query "services[0].runningCount"
-                '''
+                script {
+                    sh '''
+                    set -e
+
+                    echo "Waiting for service to stabilize..."
+                    sleep 30
+
+                    RUNNING_COUNT=$(aws ecs describe-services \
+                      --cluster $CLUSTER \
+                      --services $SERVICE \
+                      --query "services[0].runningCount" \
+                      --output text)
+
+                    echo "Running tasks: $RUNNING_COUNT"
+
+                    if [ "$RUNNING_COUNT" -lt "1" ]; then
+                      echo "Health check failed!"
+                      exit 1
+                    fi
+
+                    echo "Health check passed!"
+                    '''
+                }
             }
         }
-    }
 
     post {
         failure {
-            echo "Deployment failed. Rolling back..."
+            script {
+                sh '''
+                echo "Deployment failed. Rolling back..."
 
-            sh '''
-            aws ecs update-service \
-              --cluster $CLUSTER \
-              --service $SERVICE \
-              --force-new-deployment \
-              --region $AWS_REGION
-            '''
+                PREV_TASK_DEF_ARN=$(cat prev-task.txt)
+
+                aws ecs update-service \
+                  --cluster $CLUSTER \
+                  --service $SERVICE \
+                  --task-definition $PREV_TASK_DEF_ARN \
+                  --region $AWS_REGION
+                '''
+            }
         }
     }
 }
