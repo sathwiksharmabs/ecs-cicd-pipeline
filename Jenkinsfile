@@ -69,7 +69,10 @@ pipeline {
                        family: .family,
                        executionRoleArn: .executionRoleArn,
                        networkMode: .networkMode,
-                       containerDefinitions: (.containerDefinitions | map(.image = $IMAGE)),
+                       containerDefinitions: (.containerDefinitions | map(
+                         .image = $IMAGE |
+                         .environment = [{"name":"APP_VERSION","value":"'"$IMAGE_TAG"'"}]
+                       )),
                        requiresCompatibilities: .requiresCompatibilities,
                        cpu: .cpu,
                        memory: .memory
