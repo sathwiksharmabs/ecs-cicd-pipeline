@@ -10,6 +10,9 @@ public class HealthController {
 
     @GetMapping("/health")
     public Map<String, String> health() {
-        throw new RuntimeException("App crash for testing");
+        return Map.of(
+                "status", "UP",
+                "service", "ecs-cicd-app"
+        );
     }
 }
