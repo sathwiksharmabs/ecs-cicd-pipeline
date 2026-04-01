@@ -96,8 +96,8 @@ pipeline {
                       --task-definition $NEW_TASK_DEF_ARN \
                       --region $AWS_REGION
 
-                    echo "Waiting for ECS to stabilize (max 2 mins)..."
-                    timeout 120s aws ecs wait services-stable \
+                    echo "Waiting for ECS to stabilize (max 3 mins)..."
+                    timeout 180s aws ecs wait services-stable \
                       --cluster $CLUSTER \
                       --services $SERVICE \
                       --region $AWS_REGION || echo "Not fully stable, continuing..."
@@ -111,12 +111,15 @@ pipeline {
                 script {
                     sh '''
                     set -e
-                    echo "Waiting for ECS service to stabilize..."
+                    echo "Waiting for ECS service to stabilize (max 3 mins)..."
 
-                    aws ecs wait services-stable \
+                    if ! timeout 180s aws ecs wait services-stable \
                       --cluster $CLUSTER \
                       --services $SERVICE \
-                      --region $AWS_REGION
+                      --region $AWS_REGION; then
+                      echo "ECS did not stabilize within 3 mins"
+                      exit 1
+                    fi
 
                     echo "ECS service is stable"
 
