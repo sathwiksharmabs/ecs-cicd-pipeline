@@ -107,17 +107,19 @@ pipeline {
                     set -e
 
                     echo "Waiting for service to stabilize..."
-                    sleep 30
+                    sleep 40
 
-                    RUNNING_COUNT=$(aws ecs describe-services \
-                      --cluster $CLUSTER \
-                      --services $SERVICE \
-                      --query "services[0].runningCount" \
+                    PUBLIC_IP=$(aws ec2 describe-instances \
+                      --filters "Name=tag:Name,Values=Jenkins-Server" \
+                      --query "Reservations[0].Instances[0].PublicIpAddress" \
                       --output text)
 
-                    echo "Running tasks: $RUNNING_COUNT"
+                    echo "Checking application health..."
+                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$PUBLIC_IP:8080/health || true)
 
-                    if [ "$RUNNING_COUNT" -lt "1" ]; then
+                    echo "HTTP Status: $STATUS"
+
+                    if [ "$STATUS" != "200" ]; then
                       echo "Health check failed!"
                       exit 1
                     fi
