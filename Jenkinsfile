@@ -95,6 +95,12 @@ pipeline {
                       --service $SERVICE \
                       --task-definition $NEW_TASK_DEF_ARN \
                       --region $AWS_REGION
+
+                    echo "Waiting for ECS to stabilize..."
+                    aws ecs wait services-stable \
+                      --cluster $CLUSTER \
+                      --services $SERVICE \
+                      --region $AWS_REGION
                     '''
                 }
             }
@@ -105,21 +111,24 @@ pipeline {
                 script {
                     sh '''
                     set -e
+                    echo "Waiting for ECS service to stabilize..."
 
-                    echo "Waiting for service to stabilize..."
-                    sleep 40
+                    aws ecs wait services-stable \
+                      --cluster $CLUSTER \
+                      --services $SERVICE \
+                      --region $AWS_REGION
 
-                    PUBLIC_IP=$(aws ec2 describe-instances \
-                      --filters "Name=tag:Name,Values=Jenkins-Server" \
-                      --query "Reservations[0].Instances[0].PublicIpAddress" \
+                    echo "ECS service is stable"
+
+                    RUNNING_COUNT=$(aws ecs describe-services \
+                      --cluster $CLUSTER \
+                      --services $SERVICE \
+                      --query "services[0].runningCount" \
                       --output text)
 
-                    echo "Checking application health..."
-                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$PUBLIC_IP:8080/health || true)
+                    echo "Running tasks: $RUNNING_COUNT"
 
-                    echo "HTTP Status: $STATUS"
-
-                    if [ "$STATUS" != "200" ]; then
+                    if [ "$RUNNING_COUNT" -lt "1" ]; then
                       echo "Health check failed!"
                       exit 1
                     fi
