@@ -64,16 +64,15 @@ pipeline {
                     echo $PREV_TASK_DEF_ARN > prev-task.txt
 
                     echo "Creating new task definition with updated image..."
-                    NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "$ECR_REPO:$IMAGE_TAG" '
+                    NEW_TASK_DEF=$(echo "$TASK_DEF" | jq --arg IMAGE "$ECR_REPO:$IMAGE_TAG" '
                     {
-                      family: .family,
-                      taskRoleArn: (.taskRoleArn // empty),
-                      executionRoleArn: .executionRoleArn,
-                      networkMode: .networkMode,
-                      containerDefinitions: (.containerDefinitions | map(.image = $IMAGE)),
-                      requiresCompatibilities: .requiresCompatibilities,
-                      cpu: .cpu,
-                      memory: .memory
+                       family: .family,
+                       executionRoleArn: .executionRoleArn,
+                       networkMode: .networkMode,
+                       containerDefinitions: (.containerDefinitions | map(.image = $IMAGE)),
+                       requiresCompatibilities: .requiresCompatibilities,
+                       cpu: .cpu,
+                       memory: .memory
                     }')
 
                     echo "$NEW_TASK_DEF" > new-task-def.json
