@@ -30,7 +30,8 @@ pipeline {
         stage('Docker Build') {
             steps {
                 sh '''
-                docker build -t ecs-cicd-app:${IMAGE_TAG} .
+                docker build -t ecs-cicd-app:${IMAGE_TAG} \
+                  --build-arg APP_VERSION=${IMAGE_TAG} .
                 '''
             }
         }
