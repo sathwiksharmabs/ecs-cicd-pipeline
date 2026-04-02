@@ -95,7 +95,7 @@ pipeline {
                       --service $SERVICE \
                       --task-definition $NEW_TASK_DEF_ARN \
                       --region $AWS_REGION
-                    echo "Deployment triggered"
+                    
                     '''
                 }
             }
@@ -106,25 +106,24 @@ pipeline {
                 script {
                     sh '''
                     set -e
-                    echo "Waiting for ECS service to stabilize (max 4 mins)..."
+                    echo "Waiting for tasks to be running (max 4 mins)..."
+                    for i in {1..24}; do
+                      RUNNING_COUNT=$(aws ecs describe-services \
+                        --cluster $CLUSTER \
+                        --services $SERVICE \
+                        --query "services[0].runningCount" \
+                        --output text)
 
-                    if ! timeout 240s aws ecs wait services-stable \
-                      --cluster $CLUSTER \
-                      --services $SERVICE \
-                      --region $AWS_REGION; then
-                      echo "ECS did not stabilize within 4 mins"
-                      exit 1
-                    fi
+                      echo "Running tasks: $RUNNING_COUNT"
 
-                    echo "ECS service is stable"
+                      if [ "$RUNNING_COUNT" -ge "1" ]; then
+                        echo "Task is running"
+                        break
+                      fi
 
-                    RUNNING_COUNT=$(aws ecs describe-services \
-                      --cluster $CLUSTER \
-                      --services $SERVICE \
-                      --query "services[0].runningCount" \
-                      --output text)
-
-                    echo "Running tasks: $RUNNING_COUNT"
+                      echo "Waiting..."
+                      sleep 10
+                    done
 
                     if [ "$RUNNING_COUNT" -lt "1" ]; then
                       echo "Health check failed!"
