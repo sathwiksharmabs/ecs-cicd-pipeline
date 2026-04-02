@@ -106,13 +106,13 @@ pipeline {
                 script {
                     sh '''
                     set -e
-                    echo "Waiting for ECS service to stabilize (max 3 mins)..."
+                    echo "Waiting for ECS service to stabilize (max 4 mins)..."
 
-                    if ! timeout 180s aws ecs wait services-stable \
+                    if ! timeout 240s aws ecs wait services-stable \
                       --cluster $CLUSTER \
                       --services $SERVICE \
                       --region $AWS_REGION; then
-                      echo "ECS did not stabilize within 3 mins"
+                      echo "ECS did not stabilize within 4 mins"
                       exit 1
                     fi
 
